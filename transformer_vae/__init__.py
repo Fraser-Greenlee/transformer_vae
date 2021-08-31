@@ -1,1 +1,1 @@
-from src.config import *
+from transformer_vae import *
