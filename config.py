@@ -37,4 +37,3 @@ class TransformerVaeConfig(EncoderDecoderConfig):
         self.vae_decoder_layer_norm_eps = vae_decoder_layer_norm_eps
 
         self.is_encoder_decoder = True
-
