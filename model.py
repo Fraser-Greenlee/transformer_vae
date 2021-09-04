@@ -253,22 +253,23 @@ class TransformerVae(PreTrainedModel):
         """
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        kwargs_encoder = {argument: value for argument, value in kwargs.items() if not argument.startswith("decoder_")}
+        kwargs_encoder = {argument[len("encoder_"):]: value for argument, value in kwargs.items() if not argument.startswith("encoder_")}
 
         kwargs_decoder = {
-            argument[len("decoder_") :]: value for argument, value in kwargs.items() if argument.startswith("decoder_")
+            argument[len("decoder_"):]: value for argument, value in kwargs.items() if argument.startswith("decoder_")
         }
 
         if encoder_outputs is None:
-            encoder_outputs = self.encoder(
+            encoder_args = dict(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
                 inputs_embeds=inputs_embeds,
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
-                **kwargs_encoder,
             )
+            encoder_args.update(kwargs_encoder)
+            encoder_outputs = self.encoder(**encoder_args)
 
         encoder_hidden_states = encoder_outputs[0]
 
@@ -313,8 +314,8 @@ class TransformerVae(PreTrainedModel):
                 use_cache=use_cache,
                 past_key_values=past_key_values,
                 return_dict=return_dict,
-                **kwargs_decoder,
             )
+        decoder_args.update(kwargs_decoder)
 
         decoder_outputs = self.decoder(**decoder_args)
 
@@ -355,14 +356,24 @@ class TransformerVae(PreTrainedModel):
     ):
         decoder_inputs = self.decoder.prepare_inputs_for_generation(input_ids, past=past)
         decoder_attention_mask = decoder_inputs["attention_mask"] if "attention_mask" in decoder_inputs else None
-        input_dict = {
-            "attention_mask": attention_mask,
-            "decoder_attention_mask": decoder_attention_mask,
-            "decoder_input_ids": decoder_inputs["input_ids"],
-            "encoder_outputs": encoder_outputs,
-            "past_key_values": decoder_inputs["past_key_values"],
-            "use_cache": use_cache,
-        }
+        if self.seq2seq_decoder:
+            input_dict = {
+                "attention_mask": attention_mask,
+                "decoder_attention_mask": decoder_attention_mask,
+                "decoder_input_ids": decoder_inputs["decoder_input_ids"],
+                "encoder_outputs": encoder_outputs,
+                "past_key_values": decoder_inputs["past_key_values"],
+                "use_cache": use_cache,
+            }
+        else:
+            input_dict = {
+                "attention_mask": attention_mask,
+                "decoder_attention_mask": decoder_attention_mask,
+                "decoder_input_ids": decoder_inputs["input_ids"],
+                "encoder_outputs": encoder_outputs,
+                "past_key_values": decoder_inputs["past_key_values"],
+                "use_cache": use_cache,
+            }
         return input_dict
 
     def resize_token_embeddings(self, *args, **kwargs):
